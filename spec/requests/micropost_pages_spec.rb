@@ -42,4 +42,32 @@ describe "Micropost pages" do
       end
     end
   end
+
+  describe "micropost destruction link check" do
+      let(:other_user) { FactoryGirl.create(:user) }
+      let!(:m1) { FactoryGirl.create(:micropost, user: user, content: "Foo") }
+
+    context "valid user" do
+      before do
+        sign_in user
+        visit root_path
+      end
+
+      it "should delete a micropost" do
+        expect(page).to have_selector("li", text: "delete")
+      end
+    end
+   context "invalid user" do
+      before do
+        sign_in other_user
+        visit root_path
+      end
+
+      it "should delete a micropost" do
+        expect(page).not_to have_selector("li", text: "delete")
+      end
+    end
+
+  end
+
 end

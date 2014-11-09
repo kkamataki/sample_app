@@ -11,6 +11,14 @@ describe "Authentication" do
     it { should have_title('Sign in') }
   end
 
+  describe "user not signin" do
+      let(:user) { FactoryGirl.create(:user) }
+      it { should_not have_link('Users', href: users_path) }
+      it { should_not have_link('Profile', href: user_path(user)) }
+      it { should_not have_link('Settings', href: edit_user_path(user)) }
+  end
+
+
   describe "signin" do
     before { visit signin_path }
 
@@ -18,22 +26,18 @@ describe "Authentication" do
       before { click_button "Sign in" }
 
       it { should have_title('Sign in') }
-      it { should have_selector('div.alert.alert-error', text: 'Invalid') }
+      it { should have_error_message('Invalid') }
 
       describe "after visiting another page" do
         before { click_link "Home" }
-        it { should_not have_selector('div.alert.alert-error') }
+        it { should_not have_error_message('Invalid') }
       end
     end
 
     describe "with valid information" do
       let(:user) { FactoryGirl.create(:user) }
 
-      before do
-        fill_in "Email",    with: user.email.upcase
-        fill_in "Password", with: user.password
-        click_button "Sign in"
-      end
+      before { valid_signin(user) }
 
       before { sign_in user }
 
@@ -69,8 +73,23 @@ describe "Authentication" do
           it "should render the desired protected page" do
             expect(page).to have_title('Edit user')
           end
+
+          describe "when signing in again" do
+            before do
+              delete signout_path
+              visit signin_path
+              fill_in "Email",    with: user.email
+              fill_in "Password", with: user.password
+              click_button "Sign in"
+            end
+
+            it "should render the default (profile) page" do
+              expect(page).to have_title(user.name)
+            end
+          end
         end
       end
+
 
       describe "in the Relationships controller" do
         describe "submitting to the create action" do
@@ -150,6 +169,23 @@ describe "Authentication" do
       let(:non_admin) { FactoryGirl.create(:user) }
 
       before { sign_in non_admin, no_capybara: true }
+
+      describe "submitting a DELETE request to the Users#destroy action" do
+        before { delete user_path(user) }
+        specify { expect(response).to redirect_to(root_path) }
+      end
+    end
+
+    describe "admin user can't delete himself" do
+      let(:user) { FactoryGirl.create(:user) }
+      let(:admin) { FactoryGirl.create(:user) }
+
+      before do
+        user.save!
+        user.toggle!(:admin)
+      end
+
+      before { sign_in admin, no_capybara: true }
 
       describe "submitting a DELETE request to the Users#destroy action" do
         before { delete user_path(user) }

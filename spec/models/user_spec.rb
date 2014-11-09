@@ -1,5 +1,7 @@
 require 'spec_helper'
 
+#ActiveRecord::Base.logger = Logger.new(STDOUT) if defined?(ActiveRecord::Base)
+
 describe User do
 
   before do
@@ -52,7 +54,7 @@ describe User do
   describe "when email format is invalid" do
     it "should be invalid" do
       addresses = %w[user@foo,com user_at_foo.org example.user@foo.
-                     foo@bar_baz.com foo@bar+baz.com]
+                     foo@bar_baz.com foo@bar+baz.com foo@bar..com]
       addresses.each do |invalid_address|
         @user.email = invalid_address
         expect(@user).not_to be_valid
@@ -76,6 +78,16 @@ describe User do
       user_with_same_email.save
     end
     it { should_not be_valid }
+  end
+
+  describe "email address with mixed case" do
+    let(:mixed_case_email) { "Foo@ExAMPle.CoM" }
+
+    it "should be saved as all lower-case" do
+      @user.email = mixed_case_email
+      @user.save
+      expect(@user.reload.email).to eq mixed_case_email.downcase
+    end
   end
 
   describe "when password is not present" do
@@ -111,15 +123,6 @@ describe User do
     its(:remember_token) { should_not be_blank }
   end
 
-  describe "with admin attribute set to 'true'" do
-    before do
-      @user.save!
-      @user.toggle!(:admin)
-    end
-
-    it { should be_admin }
-  end
-
   describe "micropost associations" do
 
     before { @user.save }
@@ -143,7 +146,7 @@ describe User do
       end
     end
 
-  describe "status" do
+    describe "status" do
       let(:unfollowed_post) do
         FactoryGirl.create(:micropost, user: FactoryGirl.create(:user))
       end
@@ -178,6 +181,28 @@ describe User do
     describe "followed user" do
       subject { other_user }
       its(:followers) { should include(@user) }
+    end
+  end
+
+  describe "following associations" do
+
+    before { @user.save }
+    let(:followed_user1) { FactoryGirl.create(:user) }
+    let(:followed_user2) { FactoryGirl.create(:user) }
+
+    before do
+      @user.follow!(followed_user1)
+      @user.follow!(followed_user2)
+    end
+
+    it "should destroy associated relationships" do
+      relationships = @user.relationships.to_a
+
+      @user.destroy
+      expect(relationships).not_to be_empty
+      relationships.each do |relationship|
+        expect(Relationship.where(id: relationship.id)).to be_empty
+      end
     end
   end
 end
